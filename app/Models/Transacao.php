@@ -9,11 +9,17 @@ class Transacao extends Model
     protected $table = 'transacaos';
 
     protected $fillable = [
+        'user_id',
         'data',
         'tipo',
         'origem',
         'categoria',
         'descricao',
-        'valor',
+        'valor'
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

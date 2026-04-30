@@ -10,12 +10,17 @@ return new class extends Migration
     {
         Schema::create('transacaos', function (Blueprint $table) {
             $table->id();
+
+            // 🔑 vínculo com usuário
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+
             $table->date('data');
             $table->string('tipo');
             $table->string('origem')->default('pessoal');
-            $table->string('categoria')->nullable();
+            $table->string('categoria');
             $table->string('descricao')->nullable();
             $table->decimal('valor', 10, 2);
+
             $table->timestamps();
         });
     }
