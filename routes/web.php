@@ -1,20 +1,21 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\TransacaoController;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('financeiro.index');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard', function () {
+        return redirect()->route('financeiro.index');
+    })->name('dashboard');
 
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::get('/financeiro', [TransacaoController::class, 'index'])->name('financeiro.index');
+    Route::post('/transacoes', [TransacaoController::class, 'store'])->name('transacoes.store');
+    Route::delete('/transacoes/{transacao}', [TransacaoController::class, 'destroy'])->name('transacoes.destroy');
+    Route::get('/relatorio', [TransacaoController::class, 'relatorio'])->name('financeiro.relatorio');
 });
 
 require __DIR__.'/auth.php';

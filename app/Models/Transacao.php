@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Transacao extends Model
 {
+    protected $table = 'transacaos';
+
     protected $fillable = [
         'data',
         'tipo',
@@ -13,5 +15,10 @@ class Transacao extends Model
         'categoria',
         'descricao',
         'valor',
+    ];
+
+    protected $casts = [
+        'data' => 'date',
+        'valor' => 'decimal:2',
     ];
 }
