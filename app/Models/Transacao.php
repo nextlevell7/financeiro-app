@@ -15,7 +15,7 @@ class Transacao extends Model
         'origem',
         'categoria',
         'descricao',
-        'valor'
+        'valor',
     ];
 
     public function user()
