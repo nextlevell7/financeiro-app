@@ -15,18 +15,11 @@ class TransacaoController extends Controller
         $origem = $request->get('origem', 'todas');
         $categoria = $request->get('categoria', 'todas');
 
-        try {
-            $inicio = Carbon::createFromFormat('Y-m', $mes)->startOfMonth();
-        } catch (\Throwable $e) {
-            $mes = now()->format('Y-m');
-            $inicio = now()->startOfMonth();
-        }
+        $inicio = Carbon::createFromFormat('Y-m', $mes)->startOfMonth();
+        $fim = Carbon::createFromFormat('Y-m', $mes)->endOfMonth();
 
-        $fim = $inicio->copy()->endOfMonth();
-
-        $baseMes = Transacao::whereBetween('data', [$inicio->toDateString(), $fim->toDateString()]);
-
-        $query = Transacao::whereBetween('data', [$inicio->toDateString(), $fim->toDateString()]);
+        $query = Transacao::query()
+            ->whereBetween('data', [$inicio->toDateString(), $fim->toDateString()]);
 
         if ($tipo !== 'todos') {
             $query->where('tipo', $tipo);
@@ -42,6 +35,9 @@ class TransacaoController extends Controller
 
         $transacoes = $query->orderByDesc('data')->orderByDesc('id')->get();
 
+        $baseMes = Transacao::query()
+            ->whereBetween('data', [$inicio->toDateString(), $fim->toDateString()]);
+
         $totalReceitas = (clone $baseMes)->where('tipo', 'receita')->sum('valor');
         $totalDespesas = (clone $baseMes)->where('tipo', 'despesa')->sum('valor');
         $saldo = $totalReceitas - $totalDespesas;
@@ -50,27 +46,24 @@ class TransacaoController extends Controller
         $receitaGoverno = (clone $baseMes)->where('tipo', 'receita')->where('origem', 'governo')->sum('valor');
         $custosCarro = (clone $baseMes)->where('tipo', 'despesa')->where('origem', 'app')->sum('valor');
         $lucroApp = $receitaApp - $custosCarro;
+
         $mediaDiaria = $totalReceitas > 0 ? $totalReceitas / $inicio->daysInMonth : 0;
         $percentualCustoApp = $receitaApp > 0 ? ($custosCarro / $receitaApp) * 100 : 0;
         $percentualSobra = $totalReceitas > 0 ? ($saldo / $totalReceitas) * 100 : 0;
 
-        $categorias = Transacao::select('categoria')
+        $categorias = Transacao::query()
+            ->select('categoria')
             ->whereNotNull('categoria')
-            ->where('categoria', '<>', '')
+            ->where('categoria', '!=', '')
             ->distinct()
             ->orderBy('categoria')
             ->pluck('categoria');
 
-        $graficoReceitas = [];
-        $graficoDespesas = [];
-        $graficoLabels = [];
-
-        for ($dia = 1; $dia <= $inicio->daysInMonth; $dia++) {
-            $dataDia = $inicio->copy()->day($dia)->toDateString();
-            $graficoLabels[] = str_pad((string) $dia, 2, '0', STR_PAD_LEFT);
-            $graficoReceitas[] = (float) Transacao::whereDate('data', $dataDia)->where('tipo', 'receita')->sum('valor');
-            $graficoDespesas[] = (float) Transacao::whereDate('data', $dataDia)->where('tipo', 'despesa')->sum('valor');
-        }
+        $nomesOrigem = [
+            'app' => 'App',
+            'governo' => 'Governo',
+            'pessoal' => 'Pessoal',
+        ];
 
         return view('index', compact(
             'transacoes',
@@ -79,6 +72,7 @@ class TransacaoController extends Controller
             'origem',
             'categoria',
             'categorias',
+            'nomesOrigem',
             'totalReceitas',
             'totalDespesas',
             'saldo',
@@ -88,27 +82,24 @@ class TransacaoController extends Controller
             'lucroApp',
             'mediaDiaria',
             'percentualCustoApp',
-            'percentualSobra',
-            'graficoLabels',
-            'graficoReceitas',
-            'graficoDespesas'
+            'percentualSobra'
         ));
     }
 
     public function store(Request $request)
     {
-        $dados = $request->validate([
+        $validated = $request->validate([
             'data' => 'required|date',
             'tipo' => 'required|in:receita,despesa',
-            'origem' => 'required|in:app,governo,pessoal',
-            'categoria' => 'required|string|max:255',
+            'origem' => 'required|string|max:50',
+            'categoria' => 'nullable|string|max:100',
             'descricao' => 'nullable|string|max:255',
-            'valor' => 'required|numeric|min:0.01',
+            'valor' => 'required|numeric|min:0',
         ]);
 
-        Transacao::create($dados);
+        Transacao::create($validated);
 
-        return redirect()->route('financeiro.index', ['mes' => Carbon::parse($dados['data'])->format('Y-m')])
+        return redirect()->route('financeiro.index', ['mes' => Carbon::parse($validated['data'])->format('Y-m')])
             ->with('success', 'Lançamento salvo com sucesso!');
     }
 
@@ -125,17 +116,12 @@ class TransacaoController extends Controller
     {
         $mes = $request->get('mes', now()->format('Y-m'));
 
-        try {
-            $inicio = Carbon::createFromFormat('Y-m', $mes)->startOfMonth();
-        } catch (\Throwable $e) {
-            $mes = now()->format('Y-m');
-            $inicio = now()->startOfMonth();
-        }
-
-        $fim = $inicio->copy()->endOfMonth();
+        $inicio = Carbon::createFromFormat('Y-m', $mes)->startOfMonth();
+        $fim = Carbon::createFromFormat('Y-m', $mes)->endOfMonth();
 
         $transacoes = Transacao::whereBetween('data', [$inicio->toDateString(), $fim->toDateString()])
-            ->orderBy('data')
+            ->orderByDesc('data')
+            ->orderByDesc('id')
             ->get();
 
         $totalReceitas = $transacoes->where('tipo', 'receita')->sum('valor');

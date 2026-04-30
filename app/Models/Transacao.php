@@ -16,9 +16,4 @@ class Transacao extends Model
         'descricao',
         'valor',
     ];
-
-    protected $casts = [
-        'data' => 'date',
-        'valor' => 'decimal:2',
-    ];
 }

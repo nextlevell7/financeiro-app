@@ -8,12 +8,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('transacoes', function (Blueprint $table) {
+        Schema::create('transacaos', function (Blueprint $table) {
             $table->id();
             $table->date('data');
             $table->string('tipo');
             $table->string('origem')->default('pessoal');
-            $table->string('categoria');
+            $table->string('categoria')->nullable();
             $table->string('descricao')->nullable();
             $table->decimal('valor', 10, 2);
             $table->timestamps();
@@ -22,6 +22,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('transacoes');
+        Schema::dropIfExists('transacaos');
     }
 };
