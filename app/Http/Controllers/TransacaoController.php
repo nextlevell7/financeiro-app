@@ -11,24 +11,18 @@ class TransacaoController extends Controller
 {
     public function index(Request $request)
     {
-        $mes = $request->get('mes', now()->format('Y-m'));
-        $tipo = $request->get('tipo', 'todos');
-        $origem = $request->get('origem', 'todas');
-        $categoria = $request->get('categoria', 'todas');
+        $userId = auth()->id();
 
-        try {
-            $inicio = Carbon::createFromFormat('Y-m', $mes)->startOfMonth();
-        } catch (\Throwable $e) {
-            $mes = now()->format('Y-m');
-            $inicio = Carbon::createFromFormat('Y-m', $mes)->startOfMonth();
-        }
+        $mes = $request->mes ?? now()->format('Y-m');
+        $tipo = $request->tipo ?? 'todos';
+        $origem = $request->origem ?? 'todas';
+        $categoria = $request->categoria ?? 'todas';
 
-        $fim = $inicio->copy()->endOfMonth();
+        $inicio = Carbon::parse($mes . '-01')->startOfMonth();
+        $fim = Carbon::parse($mes . '-01')->endOfMonth();
 
-        $baseMes = Transacao::where('user_id', Auth::id())
+        $query = Transacao::where('user_id', $userId)
             ->whereBetween('data', [$inicio, $fim]);
-
-        $query = clone $baseMes;
 
         if ($tipo !== 'todos') {
             $query->where('tipo', $tipo);
@@ -42,21 +36,30 @@ class TransacaoController extends Controller
             $query->where('categoria', $categoria);
         }
 
-        $transacoes = $query->orderByDesc('data')->get();
+        $transacoes = $query->orderByDesc('data')->orderByDesc('id')->get();
 
-        $totalReceitas = (clone $baseMes)->where('tipo', 'receita')->sum('valor');
-        $totalDespesas = (clone $baseMes)->where('tipo', 'despesa')->sum('valor');
+        $totalReceitas = (clone $query)->where('tipo', 'receita')->sum('valor');
+        $totalDespesas = (clone $query)->where('tipo', 'despesa')->sum('valor');
+
         $saldo = $totalReceitas - $totalDespesas;
+
+        // ✅ CORREÇÃO IMPORTANTE (agora usa MES também)
+        $categorias = Transacao::where('user_id', $userId)
+            ->whereBetween('data', [$inicio, $fim])
+            ->select('categoria')
+            ->distinct()
+            ->pluck('categoria');
 
         return view('index', compact(
             'transacoes',
+            'totalReceitas',
+            'totalDespesas',
+            'saldo',
             'mes',
             'tipo',
             'origem',
             'categoria',
-            'totalReceitas',
-            'totalDespesas',
-            'saldo'
+            'categorias'
         ));
     }
 
@@ -89,9 +92,11 @@ class TransacaoController extends Controller
         return back();
     }
 
-    // 🔥 RELATÓRIO CORRIGIDO
+    // ✅ RELATÓRIO DEFINITIVO (SEM ERRO 500)
     public function relatorio(Request $request)
     {
+        $userId = Auth::id();
+
         $mes = $request->get('mes', now()->format('Y-m'));
 
         try {
@@ -103,7 +108,7 @@ class TransacaoController extends Controller
 
         $fim = $inicio->copy()->endOfMonth();
 
-        $transacoes = Transacao::where('user_id', Auth::id())
+        $transacoes = Transacao::where('user_id', $userId)
             ->whereBetween('data', [$inicio, $fim])
             ->orderByDesc('data')
             ->get();
@@ -112,12 +117,16 @@ class TransacaoController extends Controller
         $totalDespesas = $transacoes->where('tipo', 'despesa')->sum('valor');
         $saldo = $totalReceitas - $totalDespesas;
 
+        // ✅ ESSENCIAL pra evitar erro na view (gráfico ou categorias)
+        $categorias = $transacoes->pluck('categoria')->unique();
+
         return view('relatorio', compact(
             'transacoes',
             'mes',
             'totalReceitas',
             'totalDespesas',
-            'saldo'
+            'saldo',
+            'categorias'
         ));
     }
 }
